@@ -1,0 +1,67 @@
+//Ontology loading (OWL-API and ONT-API):
+
+OWLOntologyManager man = OntManagers.createONT();
+IRI arteIRI = IRI.create("http://130.192.212.225/fuseki/arte");
+OWLOntology o = man.loadOntology(arteIRI);
+
+
+//Reasoning calls (Hermit):
+
+OWLReasonerFactory rf = new ReasonerFactory();
+OWLReasoner r = rf.createReasoner(o);
+r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+r.precomputeInferences(InferenceType.CLASS_ASSERTIONS);
+r.precomputeInferences(InferenceType.DISJOINT_CLASSES);
+r.precomputeInferences(InferenceType.DIFFERENT_INDIVIDUALS);
+r.precomputeInferences(InferenceType.OBJECT_PROPERTY_ASSERTIONS);
+
+
+//Translation into Jena Model (Apache Jena and ONT-API):
+
+Model model = ((Ontology)o).asGraphModel();
+
+
+//SPARQL Graph Store Protocol "PUT" on remote Fuseki server (Jena RDF Connection)
+
+RDFConnectionRemoteBuilder builder = RDFConnectionFuseki.create()
+	    .destination("http://130.192.212.225/fuseki/arte");
+
+try ( RDFConnectionFuseki conn = (RDFConnectionFuseki)builder.build() ) {
+    conn.put(model);
+}
+
+
+//Example of SPARQL Query on remote Fuseki server (via Jena RDF Connection) that can be launched also by esternal applications
+
+RDFConnectionRemoteBuilder builder = RDFConnectionFuseki.create()
+	    .destination("http://130.192.212.225/fuseki/arte");
+
+Query query = QueryFactory.create(
+	    		"PREFIX arte: <http://www.modsem.org/arte#> " + 
+	    		"SELECT  ?opera " + 
+	    		"WHERE { arte:PabloPicasso arte:creatoreDi ?opera .}");
+
+try ( RDFConnectionFuseki conn = (RDFConnectionFuseki)builder.build() ) {
+    conn.queryResultSet(query, ResultSetFormatter::out);
+}
+
+
+//Example of SPARQL Update on remote Fuseki server (via Jena RDF Connection) that can be launched also by esternal applications
+
+RDFConnectionRemoteBuilder builder = RDFConnectionFuseki.create()
+	    .destination("http://130.192.212.225/fuseki/arte");
+
+try ( RDFConnectionFuseki conn = (RDFConnectionFuseki)builder.build() ) {
+	conn.update(
+        	"PREFIX : <http://www.modsem.org/arte#> " + 
+        	"PREFIX owl: <http://www.w3.org/2002/07/owl#> " + 
+        	"PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " + 
+        	"PREFIX xsd: <http://www.w3.org/2001/XMLSchema#> " + 
+        	"INSERT DATA {" + 
+        	"	 :LaVita rdf:type owl:NamedIndividual , " + 
+        	"                   :Dipinto ; " + 
+        	"          :haTitolo \"La Vita\"^^xsd:string . " + 
+        	"    :PabloPicasso :creatoreDi :LaVita .\n" + 
+        	"}");
+    conn.queryResultSet(query, ResultSetFormatter::out);
+}
